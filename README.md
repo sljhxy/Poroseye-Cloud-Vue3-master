@@ -12,19 +12,19 @@ POROSEYE 实验平台
 
 ```bash
 # 克隆项目
-git clone https://github.com/yangzongzhuan/RuoYi-Cloud-Vue3.git
+git clone https://github.com/sljhxy/Poroseye-Cloud-Vue3-master.git
 
 # 进入项目目录
-cd RuoYi-Cloud-Vue3
+cd Poroseye-Cloud-Vue3-master
 
 # 安装依赖
-yarn --registry=https://registry.npmmirror.com
+npm install
 
 # 启动服务
-yarn dev
+npm run dev
 
-# 构建测试环境 yarn build:stage
-# 构建生产环境 yarn build:prod
+# 构建测试环境 npm run build:stage
+# 构建生产环境 npm run build:prod
 # 前端访问地址 http://localhost:80
 ```
 
