@@ -96,7 +96,7 @@ function toggleTheme() {
 
 <style lang='scss' scoped>
 .navbar {
-  height: 70px;
+  height: 100px;
   position: fixed;
   top: 0;
   left: 0;

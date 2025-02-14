@@ -13,7 +13,7 @@
 
   .sidebar-container {
     transition: width 0.28s;
-    width: 70px !important;
+    width: 120px !important;
     height: 100%;
     position: fixed;
     font-size: 0px;
@@ -111,7 +111,7 @@
 
   .hideSidebar {
     .sidebar-container {
-      width: 70px !important;
+      width: 120px !important;
     }
 
     .main-container {
