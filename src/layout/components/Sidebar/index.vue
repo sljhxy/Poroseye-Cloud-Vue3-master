@@ -9,8 +9,8 @@
     <!-- 科目列表 -->
     <div class="sidebar">
     <ul>
-      <li v-for="(item, index) in mt_school_subject" :key="index">
-        {{ item.label }}
+      <li v-for="(item, index) in mt_school_subject" :key="index" @click="handleSubjectChange(item)">
+        <span :style="[item.value == clickCurrentId ? dynamicStyles : 'none' ]">{{ item.label }}</span>
       </li>
     </ul>
   </div>
@@ -60,6 +60,7 @@ import usePermissionStore from '@/store/modules/permission'
 
 //导入科目API
 import { listSubject } from '@/api/poroseye/subject'
+import { watch } from 'vue'
 const { proxy } = getCurrentInstance();
 const { mt_academic_stage, mt_school_subject,mt_vocal_school_subject, mt_textbooklibrary_time, mt_school_type, mt_vocal_education_type } = proxy.useDict('mt_academic_stage', 'mt_school_subject','mt_vocal_school_subject', 'mt_textbooklibrary_time', 'mt_school_type', 'mt_vocal_education_type');
 // 添加关于弹框控制变量
@@ -125,8 +126,34 @@ function getSubjectList() {
 }
 
 
+//将用户选择的科目传到首页
+const router = useRouter()
+const clickCurrentId = ref('1') //用户选中的科目id
+
+const dynamicStyles = ref() //定义样式变量
+function handleSubjectChange(item) {
+  router.push({
+    path: '/index',
+    query: { 
+      subjectId: item.value,//科目值（字典维护的）
+      type: 'subject',
+      _t: Date.now() // 添加时间戳参数强制刷新列表
+    }
+  })
+
+  clickCurrentId.value = item.value
+  
+  //设置选择数据的样式
+  dynamicStyles.value = [{ color: '#ff9900' }, {fontWeight: 'bold'}]
+}
 
 
+watch(() => clickCurrentId.value, (newValue) => {
+  
+  clickCurrentId.value = newValue
+   //设置选择数据的样式
+  dynamicStyles.value = [{ color: '#ff9900' }, {fontWeight: 'bold'}]
+}, { immediate: true })
 
 
 getSubjectList()//获取科目列表

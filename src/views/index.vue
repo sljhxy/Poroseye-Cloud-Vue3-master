@@ -3,8 +3,8 @@
     <!-- 添加顶部导航栏 -->
     <div class="top-navbar">
       <div class="nav-left">
-        <h1>POROSEYE实验·精品实验</h1>
-        <span class="exp-count">52个</span>
+        <h1>POROSEYE实验·精品实验-------{{ subjectIdTmp }} === {{ route.query.subjectId }}</h1>
+        <span class="exp-count">{{experimentList.length}}个</span>
       </div>
       <div class="nav-right">
         <el-input
@@ -12,6 +12,7 @@
           placeholder="搜索实验"
           prefix-icon="Search"
           class="search-input"
+          @input="searchExperiment(searchText)"
         />
         <!-- <el-button type="primary" class="create-btn">
           <el-icon><Plus /></el-icon>新建实验
@@ -49,7 +50,7 @@
                 <el-table
                   v-if="!chapterResult.length"
                   :show-header="false"
-                  :data="libraryList"
+                  :data="textbookLibraryArr"
                   @row-click="clickTable"
                   ref="refTable"
                   style="width: 100%;font-size: 16px;cursor: pointer;">
@@ -163,22 +164,23 @@
     <div class="main-content">
       <div class="exp-list-section">
         <el-row :gutter="24">
-          <el-col :span="6" v-for="item in expList" :key="item.id">
+          <el-col :span="4" v-for="item in experimentList" :key="item.id">
             <div class="exp-item">
-
-              <image-preview :src="item.img" :alt="item.title" />
+              <image-preview :src="item.thumbnail" :alt="item.experimentName" width="100%" />
               <div class="exp-preview">
                 
-                <div class="favorite-btn" @click.stop="toggleFavorite(item)">
+                
+                <!-- <div class="favorite-btn" @click.stop="toggleFavorite(item)">
                   <el-icon :class="{ 'is-favorite': item.isFavorite }">
                     <Star />
                   </el-icon>
-                </div>
+                </div> -->
               </div>
               <div class="exp-info">
-                <h3>{{ item.title }}</h3>
+                <!-- <h3>{{ item.experimentName }}</h3> -->
                 <div class="exp-stats">
-                  <span><el-icon style="position: relative;top: 2px;"><View /></el-icon> {{ item.views }}次查看</span>
+                  <h3>{{ item.experimentName }}</h3>
+                  <!-- <span><el-icon style="position: relative;top: 2px;"><View /></el-icon> {{ item.views }}次查看</span> -->
                   <el-dropdown trigger="click">
                     <el-button size="small" circle>
                       <el-icon><More /></el-icon>
@@ -312,7 +314,7 @@
 
 import { ElMessage, ElMessageBox } from 'element-plus'
 const { proxy } = getCurrentInstance();
-import { ref, computed  } from 'vue'
+import { ref, computed, onMounted, watch  } from 'vue'
 
 import {useRoute, useRouter} from 'vue-router'
 // 添加关于弹框控制变量
@@ -323,6 +325,7 @@ const loading = ref(true);
 const isFocused = ref(false); // 响应式状态，记录焦点状态
 const router = useRouter()
 
+const route = useRoute()
 
 const { mt_academic_stage, mt_school_subject,mt_vocal_school_subject, mt_textbooklibrary_time, mt_school_type, mt_vocal_education_type } = proxy.useDict('mt_academic_stage', 'mt_school_subject','mt_vocal_school_subject', 'mt_textbooklibrary_time', 'mt_school_type', 'mt_vocal_education_type');
 
@@ -335,6 +338,9 @@ import { listKnowledge} from "@/api/poroseye/knowledge";
 //导入科目API
 import { listSubject, getSubject, delSubject, addSubject, updateSubject, addOrUpdateChapter, delChapter, getChapterList, getChapterMaxId, subjectExist} from "@/api/poroseye/subject";
 
+
+//导入实验API
+import { listExperimentInfoMountsystem } from '@/api/poroseye/experimentInfo'
 
 //存用户选中了教材版本-分册后获取章节的数据
 const chapterResult = ref([])
@@ -376,9 +382,9 @@ function getVolumeListByLiabraryId(id) {
   getLibrary(id).then(response => {
     mtVolumeList.value = response.data.mtVolumeList;
     // console.log(mtVolumeList.value )
-    for (let i = 0; i < libraryList.value.length; i++) {
-      if (libraryList.value[i].id == id) {
-        libraryList.value[i].mtVolumeList = mtVolumeList.value
+    for (let i = 0; i < subjectList.value.length; i++) {
+      if (subjectList.value[i].textbookLibraryId == id) {
+        subjectList.value[i].mtVolumeList = mtVolumeList.value
       }
     }
     console.log(libraryList.value)
@@ -400,6 +406,11 @@ function handlerVolumeList(library) {
 const refTable = ref()
 function clickTable(row,index,e){
   console.log(row)
+  //根据科目id和教材版本id获取实验列表
+  queryExperimentParams.value.subjectId = subjectIdTmp.value
+  queryExperimentParams.value.textbookLibraryId = row.textbookLibraryId
+  queryExperimentParams.value.volumeId = ''
+  getExperimentList()
   console.log('进来了------进行获取实验列表。。。。。。。。。。。。')
 
   // refTable.value.toggleRowExpansion(row.mtVolumeList)
@@ -407,6 +418,18 @@ function clickTable(row,index,e){
 
 //点击分册名称获取章节
 function clickCollapseItem(item) {
+
+  console.log('进入了分册')
+  console.log(item)
+
+   //根据教材版本id和分册id获取实验列表
+  queryExperimentParams.value.subjectId = subjectIdTmp.value
+  queryExperimentParams.value.textbookLibraryId = item.textbookLibraryId
+  queryExperimentParams.value.volumeId = item.id
+  getExperimentList()
+  console.log('进入了分册')
+
+
   findChapterList(item.id)//获取章节列表
 }
 
@@ -447,7 +470,8 @@ const handleTabChange = (tab) => {
   // 清空搜索内容并重新加载数据
   if (activeTab.value == 'library') {
     // 重新加载教材版本数据
-    getLibraryList()
+    // getLibraryList()
+    getSubjectList()
   } else if(activeTab.value == 'knowledge') {
 
     // 重新加载知识点数据
@@ -482,12 +506,20 @@ function handleShowAboutDialog() {
   //将搜索条件置为空
   querySubjectParams.value.textbookLibraryId = ''
   querySubjectParams.value.educationStageType = ''
+  querySubjectParams.value.subjectType = ''
   showAboutDialog.value = true
   //获取所有的教材版本
   // getLibraryList()
 
   //获取教材版本-分册列表
-  getSubjectList()
+  // getSubjectList()
+  listSubject(querySubjectParams.value).then(response => {
+    subjectList.value = response.rows;
+    subjectTotal.value = response.total;
+    finalLibrary.value = subjectList.value //要处理的教材版本数据-包括重复的  弹框中要用
+    loading.value = false;
+  
+  });
   
 }
 
@@ -555,14 +587,24 @@ const querySubjectParams = ref({
 );
 
 const finalLibrary = ref([])
+const finalLibraryList = ref([])
 function getSubjectList() {
   loading.value = true;
   querySubjectParams.value.educationStageType = currentLevel.value
+  querySubjectParams.value.subjectType = subjectIdTmp.value
   listSubject(querySubjectParams.value).then(response => {
     subjectList.value = response.rows;
     subjectTotal.value = response.total;
-    finalLibrary.value = subjectList.value //要处理的教材版本数据-包括重复的
+    finalLibrary.value = subjectList.value //要处理的教材版本数据-包括重复的  弹框中要用
+    finalLibraryList.value = subjectList.value //要处理的教材版本数据-包括重复的  首页列表要用到
     loading.value = false;
+
+
+    //处理数据
+    for (let i = 0; i < subjectList.value.length; i++) {
+      let libraryId = subjectList.value[i].textbookLibraryId;//教材版本ID
+      getVolumeListByLiabraryId(libraryId)
+    }
   });
 }
 
@@ -579,6 +621,21 @@ const textbookLibraryNameArr = computed(() => {
   textbookLibraryResTmp = array
   return textbookLibraryResTmp
 });
+
+
+const textbookLibraryArr = computed(() => {
+  let obj = {}
+   //去重
+  let array = []
+  array = finalLibraryList.value.reduce((newArray, next) => {
+  obj[next.textbookLibraryId] ? "" : (obj[next.textbookLibraryId] = true && newArray.push(next));
+    return newArray
+  },[]);
+  let textbookLibraryResTmp = [];
+  textbookLibraryResTmp = array
+  return textbookLibraryResTmp
+});
+
 
 
 //用户选中了教材分册后的处理方法
@@ -664,6 +721,39 @@ const cancleDialog = (val) => {
 
 
 
+//获取实验列表
+const queryExperimentParams = ref({
+  schoolType: '1',
+  academicStageType:'',
+  subjectId:'',
+  textbookLibraryId:'',
+  volumeId:'',
+  courseSystems:[],
+  experimentName:'',
+  pageNum: 1,
+  pageSize: 1000000,
+  
+})
+const experimentList = ref([]) // 当前显示的实验列表
+function getExperimentList() {
+  // loading.value = true;
+  queryExperimentParams.value.subjectId = route.query.subjectId//科目id
+  listExperimentInfoMountsystem(queryExperimentParams.value).then(response => {
+    experimentList.value = response.rows;
+    // loading.value = false;
+  });
+}
+
+getExperimentList()
+
+//搜索实验
+function searchExperiment(value) {
+  queryExperimentParams.value.experimentName = value
+  getExperimentList()
+
+}
+
+
 
 // 筛选标签
 const filterTags = ref([
@@ -741,30 +831,32 @@ const toggleTag = (tag) => {
 const watchVideo = (item) => {
   console.log('观看视频:', item.title)
 
-  router.push('/experiment')
+  // router.push('/experiment')
+  router.push({
+    path: '/experiment',
+    query: { 
+      experimentId: item.experimentInfoId,//实验值（字典维护的）
+      experimentName: item.experimentName,//实验名称
+      type: 'experiment',
+      _t: Date.now() // 添加时间戳参数强制刷新列表
+    }
+  })
   
   // 这里添加观看视频的逻辑
 }
 
 const startExperiment = (item) => {
-  console.log('开始实验:', item.title)
+  console.log('开始实验:', item.experimentName)
+  //跳转到开始实验的页面
   location.href = 'https://motong-pc.oss.poroseye.com/?d=%E6%8E%A2%E7%A9%B6%E5%87%B8%E9%80%8F%E9%95%9C%E6%88%90%E5%83%8F%E7%9A%84%E8%A7%84%E5%BE%8B&title=%E6%8E%A2%E7%A9%B6%E5%87%B8%E9%80%8F%E9%95%9C%E6%88%90%E5%AE%9E%E5%83%8F%E7%9A%84%E8%A7%84%E5%BE%8B'
-  // 这里添加开始实验的逻辑
+  // location.href = 'https://motong-pc.oss.poroseye.com/?d=' + item.experimentInfoId + '&title=' + item.experimentName
 }
 // 添加收藏切换方法
 const toggleFavorite = (item) => {
   item.isFavorite = !item.isFavorite;
   // 这里可以添加收藏相关的后端接口调用
 }
-// 添加章节数据
-const chapterList = ref([
-  { id: 1, title: '第一章 机械运动' },
-  { id: 2, title: '第二章 声现象' },
-  { id: 3, title: '第三章 物态变化' },
-  { id: 4, title: '第四章 光现象' },
-  { id: 5, title: '第五章 透镜及其应用' },
-  { id: 6, title: '第六章 质量与密度' }
-])
+
 
 const currentChapter = ref(1)
 
@@ -816,23 +908,6 @@ const updateExpList = () => {
 
 
 
-// 添加版本相关数据
-const versionList = ref([
-  { label: '全部', value: 'all' },
-  { label: '新人教版', value: 'new_pep' },
-  { label: '人教版', value: 'pep' },
-  { label: '人教版', value: 'pep1' },
-  { label: '人教版', value: 'pep2' },
-  { label: '人教版', value: 'pep3' },
-  { label: '人教版', value: 'pep4' },
-  { label: '人教版', value: 'pep5' },
-  { label: '人教版', value: 'pep51' },
-  { label: '人教版', value: 'pep52' },
-  { label: '人教版', value: 'pep53' },
-  { label: '科粤版', value: 'guangdong' }
-])
-
-
 // 更新教材列表方法也需要更新，添加版本参数
 const updateTextbookList = (level, version) => {
   console.log('更新教材列表:', level, version)
@@ -840,8 +915,25 @@ const updateTextbookList = (level, version) => {
 }
 
 
-getLibraryList() //获取教材版本列表
-getKnowledgeList() //获取知识点列表
+//科目
+const subjectIdTmp = ref()
+
+//监听科目动态
+watch(() => route.query.subjectId, (newQuery) => {
+  
+  subjectIdTmp.value = newQuery
+  getSubjectList()
+  queryExperimentParams.value.textbookLibraryId = '' //清空教材
+  queryExperimentParams.value.volumeId = ''//清空分册
+  getExperimentList()
+  console.log('监听.........................')
+},{ immediate: true })
+
+
+
+getSubjectList()
+// getLibraryList() //获取教材版本列表
+// getKnowledgeList() //获取知识点列表
 </script>
 
 <style scoped lang="scss">
@@ -931,12 +1023,12 @@ getKnowledgeList() //获取知识点列表
 
     }
 
- 
+
     .el-table {
       --el-table-border-color: transparent !important;//去掉上下边框
       // --el-table-row-hover-bg-color:#ff9900; //表格获取光标的背景色
       margin: 10px 0;
-      
+
     }
 
     .el-collapse {
@@ -980,14 +1072,14 @@ getKnowledgeList() //获取知识点列表
         color: #606266;
         &:hover {
           // background:#ff7613;
-          background-color:#ff9900;
-          opacity: 0.5;
+          // background-color:#f5f7fa;
+          // opacity: 0.5;
           border-radius: 10px;
           font-weight: bold;
         }
         &.active {
-          color:#ff9900;
-          background: #e49400;
+          // color:#ff9900;
+          // background: #e49400;
           font-weight: bold;
         }
         &.main-chapter {
@@ -1001,6 +1093,10 @@ getKnowledgeList() //获取知识点列表
             width: 200px;
             &:hover {
               color: #606266;
+              background: #f5f7fa;
+              border: #f5f7fa;
+              // opacity: 0.2;
+              font-weight: bold;
             }
           }
 
@@ -1069,11 +1165,21 @@ getKnowledgeList() //获取知识点列表
         &:hover {
           transform: translateY(-2px);
           box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
+          background: #f5f7fa;
+          font-weight: bold;
+          // #ebf5ff  #409EFF   fff1e7 浅色
+        } 
+        //点击更多更改背景色
+        // .el-button {
+        //   --el-color-primary-light-7:#fff1e7;
+        //   --el-color-primary-light-9:#fff1e7;
+        //   --el-color-primary: #ff7613;
+        // }
         .exp-info {
           padding: 0 10px 10px;
           h3 {
-            font-size: 15px;
+            font-size: 16px;
+            // font-weight: bold;
             margin-bottom: 12px;
             color: #303133;
             display: -webkit-box;
@@ -1096,6 +1202,8 @@ getKnowledgeList() //获取知识点列表
             .el-dropdown {
               margin-left: auto;
             }
+
+          
           }
         }
       }
